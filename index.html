@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    
+    <link rel="icon" type="image/png" href="icon.png">
+    <link rel="apple-touch-icon" href="icon.png">
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#4361ee">
+    
+    <title>師大好排課 | NTNU Scheduler Pro</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/matter-js/0.19.0/matter.min.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.1/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/index.min.js"></script>
+    <script>
+        MobileDragDrop.polyfill({
+            dragImageCenterOnTouch: true,
+            iterationIntervalMs: 50
+        });
+    </script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/mobile-drag-drop@2.3.0-rc.2/default.css">
+    
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<button id="restore-physics-btn" onclick="app.restoreExplosion()" style="display:none;">
+    <i class="fas fa-undo"></i> 復原網頁
+</button>
+
+<div id="tutorial-mask">
+    <div id="tutorial-highlight"></div>
+    <div id="tutorial-dialog">
+        <h3 id="tut-title">標題</h3>
+        <p id="tut-desc">說明文字</p>
+        <div class="tut-footer">
+            <span class="tut-steps" id="tut-step-display">1 / 4</span>
+            <button class="btn-action btn-primary" style="width:auto; padding:5px 15px;" onclick="app.nextStep()" id="tut-next-btn">下一步</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="detail-modal">
+    <div class="modal">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3 style="margin:0;">課程詳情</h3>
+            <span style="cursor:pointer; font-size:1.5rem;" onclick="app.closeModal('detail-modal')">&times;</span>
+        </div>
+        <div id="detail-content"></div>
+        
+        <div id="detail-btn-group" style="margin-top:20px; display:flex; flex-direction:column; gap:10px;">
+            </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="fill-modal">
+    <div class="modal">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+            <h3 style="margin:0;">空堂填課</h3>
+            <span style="cursor:pointer; font-size:1.5rem;" onclick="app.closeModal('fill-modal')">&times;</span>
+        </div>
+        <div id="fill-list"></div> 
+    </div>
+</div>
+
+<div class="modal-overlay" id="file-modal">
+    <div class="modal" style="width: 400px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3 style="margin:0;">檔案與資料庫管理</h3>
+            <span style="cursor:pointer; font-size:1.5rem;" onclick="app.closeModal('file-modal')">&times;</span>
+        </div>
+        
+        <div style="margin-bottom: 5px; font-weight:bold; color:var(--primary); font-size:0.9rem;">
+            <i class="fas fa-info-circle"></i> 目前專案狀態
+        </div>
+        <div id="project-info-area" style="background:var(--bg-color); padding:10px; border-radius:6px; margin-bottom:15px; font-size:0.9rem; color:var(--text-sub);">
+            尚未儲存專案
+        </div>
+
+        <div class="file-section-header" onclick="app.toggleFileSection('project-files-list', this)">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-chevron-right section-arrow"></i>
+                <span style="font-weight:bold; color:var(--text-main); font-size:0.9rem;">
+                    <i class="fas fa-project-diagram" style="color:#e67e22;"></i> 專案連結資料庫
+                </span>
+            </div>
+            <i class="fas fa-trash-alt section-delete-btn" title="清空此區域所有檔案" onclick="event.stopPropagation(); app.clearFilesBySource('project')"></i>
+        </div>
+        <ul id="project-files-list" class="file-list collapsible-file-list" style="display:none;">
+            </ul>
+
+        <div class="file-section-header" style="margin-top:10px;" onclick="app.toggleFileSection('local-files-list', this)">
+            <div style="display:flex; align-items:center; gap:8px;">
+                <i class="fas fa-chevron-right section-arrow"></i>
+                <span style="font-weight:bold; color:var(--text-main); font-size:0.9rem;">
+                    <i class="fas fa-user-upload" style="color:#27ae60;"></i> 自行匯入資料庫
+                </span>
+            </div>
+            <i class="fas fa-trash-alt section-delete-btn" title="清空此區域所有檔案" onclick="event.stopPropagation(); app.clearFilesBySource('local')"></i>
+        </div>
+        <ul id="local-files-list" class="file-list collapsible-file-list" style="display:none;">
+            </ul>
+
+        </div>
+</div>
+
+<div class="modal-overlay" id="import-modal">
+    <div class="modal" style="width: 320px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3 style="margin:0;">選擇匯入方式</h3>
+            <span style="cursor:pointer; font-size:1.5rem;" onclick="app.closeModal('import-modal')">&times;</span>
+        </div>
+        <div class="import-option">
+            <div class="import-btn" onclick="app.triggerExcel()">
+                <i class="fas fa-file-excel import-icon" style="color: #27ae60;"></i>
+                <div>
+                    <div style="font-weight:bold;">匯入 Excel</div>
+                    <div style="font-size:0.8rem; color:#666;">支援多檔案選取</div>
+                </div>
+            </div>
+            <div class="import-btn" onclick="app.triggerJson()">
+                <i class="fas fa-project-diagram import-icon" style="color: #e67e22;"></i>
+                <div>
+                    <div style="font-weight:bold;">匯入專案 (JSON)</div>
+                    <div style="font-size:0.8rem; color:#666;">還原之前的排課進度 (單檔)</div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="stats-modal">
+    <div class="modal" style="width: 350px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3 style="margin:0;">外系/其他 學分分佈</h3>
+            <span style="cursor:pointer; font-size:1.5rem;" onclick="app.closeModal('stats-modal')">&times;</span>
+        </div>
+        <div id="stats-detail-list"></div>
+    </div>
+</div>
+
+<div class="central-modal-overlay" id="instruction-modal">
+    <div class="central-modal" style="width: 400px;">
+        <div style="margin-bottom: 15px; color: var(--primary); font-size: 3rem;"><i class="fas fa-info-circle"></i></div>
+        <h3 style="margin: 0 0 10px 0; color: var(--text-main);">操作指引</h3>
+        <div style="color: var(--text-sub); margin-bottom: 20px; font-size: 0.95rem; line-height: 1.6; text-align: left;">
+            請到左側找到資料夾：「找課選單」<br>
+            → 找到 「當學期課程查詢」<br>
+            → 點擊 「開課和課程大綱查詢」<br>
+            → 點選 「開課資料匯出」<br><br>
+            (若無法正常顯示，請點擊「網站」開啟)
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button class="btn-action btn-outline" style="margin:0;" onclick="app.closeModal('instruction-modal')">關閉</button>
+        </div>
+    </div>
+</div>
+
+<div class="central-modal-overlay" id="tutorial-selection-modal">
+    <div class="central-modal" style="width: 300px;">
+        <div style="margin-bottom: 15px; color: #6c5ce7; font-size: 3rem;"><i class="fas fa-question-circle"></i></div>
+        <h3 style="margin: 0 0 20px 0; color: var(--text-main);">使用教學</h3>
+        <div style="display: flex; flex-direction: column; gap: 10px;">
+            <button class="btn-action btn-primary" onclick="app.closeModal('tutorial-selection-modal'); app.startTutorial();">
+                <i class="fas fa-play"></i> 開始介面引導
+            </button>
+            <button class="btn-action btn-outline" onclick="app.closeModal('tutorial-selection-modal'); app.showExcelGuide();">
+                <i class="fas fa-file-download"></i> Excel 來源下載教學
+            </button>
+            <button class="btn-action btn-outline" style="border:none; color:#999;" onclick="app.closeModal('tutorial-selection-modal')">取消</button>
+        </div>
+    </div>
+</div>
+
+<div class="central-modal-overlay" id="surprise-modal" onclick="app.closeModal('surprise-modal')">
+    <div class="central-modal" onclick="event.stopPropagation()">
+        <img src="sixseven-six.gif" alt="Surprise!" style="width: 100%; border-radius: 8px;">
+    </div>
+</div>
+
+<input type="file" id="input-excel" accept=".xlsx,.xls,.csv" multiple style="display:none;" onchange="app.handleFileChange(event, 'excel')">
+<input type="file" id="input-json" accept=".json" style="display:none;" onchange="app.handleFileChange(event, 'json')">
+
+<div class="central-modal-overlay" id="confirm-modal">
+    <div class="central-modal">
+        <div style="margin-bottom: 15px; color: var(--warning); font-size: 3rem;"><i class="fas fa-exclamation-triangle"></i></div>
+        <h3 style="margin: 0 0 10px 0; color: var(--text-main);">確認覆蓋課程？</h3>
+        <div id="confirm-msg" style="color: var(--text-sub); margin-bottom: 20px; font-size: 0.95rem; line-height: 1.5;"></div>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button class="btn-action btn-outline" style="margin:0;" onclick="app.resolveConflict(false)">取消</button>
+            <button class="btn-action btn-primary" style="margin:0; background: var(--warning);" onclick="app.resolveConflict(true)">確認覆蓋</button>
+        </div>
+    </div>
+</div>
+
+<div class="central-modal-overlay" id="overwrite-modal">
+    <div class="central-modal">
+        <div style="margin-bottom: 15px; color: var(--warning); font-size: 3rem;"><i class="fas fa-exclamation-triangle"></i></div>
+        <h3 style="margin: 0 0 10px 0; color: var(--text-main);">確認覆蓋專案？</h3>
+        <div style="color: var(--text-sub); margin-bottom: 20px; font-size: 0.95rem; line-height: 1.5;">
+            系統偵測到已匯入過 JSON 專案。<br>
+            匯入新檔案將<b>「強制覆蓋」</b>舊有的 JSON 課程資料。<br>
+            (Excel 匯入的資料不受影響)
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button class="btn-action btn-outline" style="margin:0;" onclick="app.handleOverwriteDecision(false)">取消</button>
+            <button class="btn-action btn-primary" style="margin:0; background: var(--warning);" onclick="app.handleOverwriteDecision(true)">確認覆蓋</button>
+        </div>
+    </div>
+</div>
+
+<div class="central-modal-overlay" id="semester-modal">
+    <div class="central-modal">
+        <div style="margin-bottom: 15px; color: var(--warning); font-size: 3rem;"><i class="fas fa-calendar-times"></i></div>
+        <h3 style="margin: 0 0 10px 0; color: var(--text-main);">學期/學年不一致</h3>
+        <div style="color: var(--text-sub); margin-bottom: 20px; font-size: 0.95rem; line-height: 1.5; text-align: left;">
+            系統偵測到您匯入的檔案學期與目前系統內的學期不同。<br><br>
+            <b>目前系統：</b><span id="sem-current-val"></span><br>
+            <b>匯入檔案：</b><span id="sem-new-val" style="color:var(--danger);"></span><br><br>
+            混合不同學期的課程可能會導致衝堂判斷錯誤，是否仍要繼續匯入？
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button class="btn-action btn-outline" style="margin:0;" onclick="app.handleSemesterDecision(false)">取消匯入</button>
+            <button class="btn-action btn-primary" style="margin:0; background: var(--warning);" onclick="app.handleSemesterDecision(true)">確認匯入</button>
+        </div>
+    </div>
+</div>
+
+<div class="central-modal-overlay" id="alert-modal">
+    <div class="central-modal">
+        <div style="margin-bottom: 15px; color: var(--success); font-size: 3rem;" id="alert-icon"><i class="fas fa-check-circle"></i></div>
+        <h3 style="margin: 0 0 10px 0; color: var(--text-main);" id="alert-title">操作成功</h3>
+        <div id="alert-msg" style="color: var(--text-sub); margin-bottom: 20px; font-size: 0.95rem; line-height: 1.5;"></div>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button class="btn-action btn-primary" style="margin:0;" onclick="app.closeModal('alert-modal')">我知道了</button>
+        </div>
+    </div>
+</div>
+
+<div class="central-modal-overlay" id="clear-modal">
+    <div class="central-modal">
+        <div style="margin-bottom: 15px; color: var(--danger); font-size: 3rem;"><i class="fas fa-trash-alt"></i></div>
+        <h3 style="margin: 0 0 10px 0; color: var(--text-main);">確定清空課表？</h3>
+        <div style="color: var(--text-sub); margin-bottom: 20px; font-size: 0.95rem; line-height: 1.5;">
+            將移除所有已排入的課程。<br>此動作無法復原。
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button class="btn-action btn-outline" style="margin:0;" onclick="app.closeModal('clear-modal')">取消</button>
+            <button class="btn-action btn-primary" style="margin:0; background: var(--danger); border-color: var(--danger);" onclick="app.confirmClear()">確認清空</button>
+        </div>
+    </div>
+</div>
+
+<div class="central-modal-overlay" id="delete-single-modal">
+    <div class="central-modal">
+        <div style="margin-bottom: 15px; color: var(--danger); font-size: 3rem;"><i class="fas fa-minus-circle"></i></div>
+        <h3 style="margin: 0 0 10px 0; color: var(--text-main);">移除此課程？</h3>
+        <div id="delete-course-name" style="color: var(--text-sub); margin-bottom: 20px; font-weight:bold; font-size: 1rem; line-height: 1.5;"></div>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button class="btn-action btn-outline" style="margin:0;" onclick="app.closeModal('delete-single-modal')">取消</button>
+            <button class="btn-action btn-primary" style="margin:0; background: var(--danger); border-color: var(--danger);" onclick="app.executeDeleteSingle()">確認移除</button>
+        </div>
+    </div>
+</div>
+
+<div class="central-modal-overlay" id="clear-excel-modal">
+    <div class="central-modal">
+        <div style="margin-bottom: 15px; color: var(--danger); font-size: 3rem;"><i class="fas fa-exclamation-triangle"></i></div>
+        <h3 style="margin: 0 0 10px 0; color: var(--text-main);">清空所有 Excel？</h3>
+        <div style="color: var(--text-sub); margin-bottom: 20px; font-size: 0.95rem; line-height: 1.5;">
+            此動作將移除所有已匯入的 <b style="color:var(--text-main);">Excel 檔案</b> 及其課程。<br>
+            (JSON 專案檔若存在將會保留)<br><br>
+            <b>確定要繼續嗎？</b>
+        </div>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button class="btn-action btn-outline" style="margin:0;" onclick="app.closeModal('clear-excel-modal')">取消</button>
+            <button class="btn-action btn-primary" style="margin:0; background: var(--danger);" onclick="app.confirmClearExcel()">確認清空</button>
+        </div>
+    </div>
+</div>
+
+<div class="central-modal-overlay" id="generic-confirm-modal">
+    <div class="central-modal">
+        <div style="margin-bottom: 15px; color: var(--primary); font-size: 3rem;"><i class="fas fa-question-circle"></i></div>
+        <h3 style="margin: 0 0 10px 0; color: var(--text-main);" id="generic-confirm-title">確認操作</h3>
+        <div id="generic-confirm-msg" style="color: var(--text-sub); margin-bottom: 20px; font-size: 0.95rem; line-height: 1.5;"></div>
+        <div style="display: flex; gap: 10px; justify-content: center;">
+            <button class="btn-action btn-outline" style="margin:0;" onclick="app.closeModal('generic-confirm-modal')">取消</button>
+            <button class="btn-action btn-primary" style="margin:0;" id="generic-confirm-btn">確認</button>
+        </div>
+    </div>
+</div>
+
+<nav id="mobile-nav">
+    <div class="nav-row">
+        <div class="nav-item" onclick="app.switchTab('left-sidebar', this)">
+            <i class="fas fa-book-open"></i>
+            <span>課程庫</span>
+        </div>
+        <div class="nav-item active" onclick="app.switchTab('main-area', this)">
+            <i class="fas fa-calendar-alt"></i>
+            <span>主介面</span>
+        </div>
+        <div class="nav-item" onclick="app.switchTab('right-sidebar', this)">
+            <i class="fas fa-cog"></i>
+            <span>設定</span>
+        </div>
+    </div>
+    <div class="mobile-copyright">Layout design: <a href="https://linktr.ee/vis_tzem" target="_blank">VisTzem</a></div>
+</nav>
+
+<aside id="left-sidebar" class="view-section" ondragover="app.handleSidebarDragOver(event)" ondragleave="app.handleSidebarDragLeave(event)" ondrop="app.handleSidebarDrop(event)">
+    <div class="sidebar-collapsed-btn" onclick="app.showInstructionModal()">
+        <i class="fas fa-info-circle"></i>
+        <span class="vertical-text-box">資訊</span>
+    </div>
+    
+    <a href="https://courseap2.itc.ntnu.edu.tw/acadmOpenCourse/index.jsp" target="_blank" class="sidebar-collapsed-btn" style="text-decoration:none;">
+        <i class="fas fa-external-link-alt"></i>
+        <span class="vertical-text-box">網站</span>
+    </a>
+
+    <div class="sidebar-header"><h3 style="margin:0;"><i class="fas fa-book-open"></i> 課程庫</h3></div>
+    
+    <div id="file-action-zone" style="padding:10px 15px 0 15px; display:flex; gap:8px;">
+        <button class="btn-action btn-outline" style="margin-bottom:5px; padding:8px; flex:1;" onclick="app.openImportModal()">
+            <i class="fas fa-upload"></i> 匯入
+        </button>
+        <button class="btn-action btn-outline" style="margin-bottom:5px; padding:8px; flex:1;" onclick="app.openFileManager()">
+            <i class="fas fa-folder-open"></i> 管理檔案
+        </button>
+    </div>
+
+    <div class="filter-section">
+        <div class="filter-label">
+            <span><i class="fas fa-filter"></i> 篩選 (自動排序：系所→時間)</span>
+            <span style="cursor:pointer; color:var(--primary);" onclick="app.resetFilters()">重置</span>
+        </div>
+        
+        <div class="filter-row">
+            <input type="text" id="filter-search" class="filter-select" placeholder="🔍 搜尋課程名稱或教師..." autocomplete="off">
+        </div>
+
+        <div class="filter-row"><select id="filter-dept" class="filter-select"><option value="all">所有系所</option></select></div>
+        <div class="filter-row">
+            <select id="filter-day" class="filter-select" style="flex:1;"><option value="all">所有星期</option><option value="1">週一</option><option value="2">週二</option><option value="3">週三</option><option value="4">週四</option><option value="5">週五</option><option value="6">週六</option></select>
+            <select id="filter-period" class="filter-select" style="flex:1;"><option value="all">所有節次</option></select>
+        </div>
+        <div class="filter-row">
+             <select id="filter-type" class="filter-select" style="width:100%;"><option value="all">所有類別 (必/選/通)</option><option value="必修">必修</option><option value="選修">選修</option><option value="通識">通識</option></select>
+        </div>
+    </div>
+
+    <div id="course-stats-bar"><span id="total-courses-count">顯示 0 堂課</span></div>
+    <div id="course-list" class="list-container"><div style="text-align:center; color:#999; margin-top:30px;">請匯入檔案</div></div>
+</aside>
+
+<main id="main-area" class="view-section active" onclick="app.cancelPendingConflict(event)">
+    
+    <div id="main-content-wrapper" style="flex: 1; overflow: hidden; position: relative; display: flex; flex-direction: column;">
+        
+        <div id="subview-timetable" class="main-subview active">
+
+            <button id="btn-toggle-time" class="grid-top-left-btn" onclick="app.togglePeriodTime()" title="顯示/隱藏時間">
+                <i class="fas fa-clock"></i>
+            </button>
+
+            <div id="legend-bar"></div>
+            
+            <div id="zoom-hint" style="display:none; text-align:center; color:var(--text-sub); font-size:0.8rem; margin-bottom:5px;">
+                <i class="fas fa-arrows-alt"></i> 檢視模式：可使用滑鼠滾輪縮放、拖曳移動
+            </div>
+
+            <div id="timetable-container" style="flex:1; overflow:hidden; position:relative; background:var(--bg-color);">
+                <div id="timetable-wrapper">
+                    <table class="timetable">
+                        <thead><tr><th style="width:50px;">節</th><th>一</th><th>二</th><th>三</th><th>四</th><th>五</th><th>六</th></tr></thead>
+                        <tbody id="timetable-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div id="holding-area-wrapper" style="margin-top:10px; border-top:2px solid var(--border-color); padding-top:10px;">
+                <div class="holding-header" onclick="app.toggleHoldingArea()" style="cursor:pointer; display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                    <div style="font-size:0.9rem; font-weight:bold; color:var(--text-sub);">
+                        <i class="fas fa-chevron-down" id="holding-arrow" style="transition:transform 0.3s;"></i> 
+                        <i class="fas fa-inbox"></i> 課程暫存區
+                    </div>
+                    <span style="cursor:pointer; color:var(--danger); font-size:0.8rem;" onclick="event.stopPropagation(); app.clearHoldingArea()">清空</span>
+                </div>
+                <div id="holding-content" style="display:block;">
+                    <div id="holding-area" class="holding-dropzone">
+                        <div class="holding-placeholder">暫存區為空 (將課程拖曳至此)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="floating-controls">
+                <div id="fab-menu-items" class="fab-menu-items">
+                    <button id="btn-mode-switch" class="floating-btn" onclick="app.toggleInteractionMode()" title="切換檢視/編輯模式">
+                        <i class="fas fa-hand-paper"></i>
+                    </button>
+                    <button id="btn-undo" class="floating-btn" onclick="app.undo()" title="上一步 (復原)">
+                        <i class="fas fa-undo"></i>
+                    </button>
+                    <button id="btn-redo" class="floating-btn" onclick="app.redo()" title="下一步 (重做)">
+                        <i class="fas fa-redo"></i>
+                    </button>
+                </div>
+                <button id="btn-fab-main" class="floating-btn main-fab" onclick="app.toggleFab()" title="工具選單">
+                    <i class="fas fa-tools"></i>
+                </button>
+            </div>
+
+        </div>
+
+        <div id="subview-search" class="main-subview" style="display: none;">
+            <div class="search-hero">
+                <h2><i class="fas fa-search-location"></i> 課程評價搜尋</h2>
+                <div style="font-size: 0.9rem; color: var(--text-sub); margin-bottom: 20px;">
+                    不知道選什麼課？查詢學長姐的評價來決定吧！
+                </div>
+                
+                <div class="search-box-container">
+                    <input type="text" id="review-search-input" placeholder="輸入課程名稱或老師姓名..." onkeypress="if(event.key==='Enter') app.searchReview()">
+                    <button class="btn-search" onclick="app.searchReview()"><i class="fas fa-search"></i> 搜尋</button>
+                </div>
+
+                <div class="platform-select">
+                    <label class="radio-container">
+                        <input type="radio" name="search-platform" value="facebook" checked>
+                        <span class="radio-checkmark"></span>
+                        <i class="fab fa-facebook-square" style="color: #1877F2;"></i> Facebook 選課沒地雷
+                    </label>
+                    <label class="radio-container">
+                        <input type="radio" name="search-platform" value="opt">
+                        <span class="radio-checkmark"></span>
+                        <i class="fas fa-graduation-cap" style="color: #6c5ce7;"></i> 1111 歐趴堂
+                    </label>
+                </div>
+            </div>
+
+            <div id="review-result-container">
+                <div id="review-placeholder" style="text-align: center; color: var(--text-sub); margin-top: 50px;">
+                    <i class="fas fa-search" style="font-size: 3rem; opacity: 0.2; margin-bottom: 10px;"></i>
+                    <div>請輸入關鍵字並選擇平台進行搜尋</div>
+                </div>
+
+                <div id="fb-result-area" style="display: none; text-align: center; margin-top: 30px;">
+                    <div style="margin-bottom: 15px; font-size: 1.1rem;">Facebook 不支援直接嵌入，請點擊下方按鈕前往社團搜尋結果：</div>
+                    <a id="fb-search-link" href="#" target="_blank" class="btn-action btn-primary" style="width: auto; display: inline-flex; padding: 12px 25px; font-size: 1rem;">
+                        <i class="fab fa-facebook"></i> 前往 Facebook 查看「<span id="fb-query-text"></span>」
+                    </a>
+                </div>
+
+                <div id="opt-result-area" style="display: none; flex: 1; width: 100%; height: 100%; flex-direction: column;">
+                     <div style="padding: 5px; text-align: right; background: var(--bg-color);">
+                        <a id="opt-external-link" href="#" target="_blank" style="font-size: 0.8rem; color: var(--primary); text-decoration: none;">
+                            <i class="fas fa-external-link-alt"></i> 在新視窗開啟
+                        </a>
+                     </div>
+                    <iframe id="opt-iframe" src="" frameborder="0" style="width: 100%; flex: 1; border: none; background: white;"></iframe>
+                </div>
+            </div>
+        </div>
+
+        <div id="subview-official-query" class="main-subview" style="display: none; background-color: white;">
+            <div class="mobile-search-header">
+                <button class="btn-action btn-primary" style="flex:1;" onclick="app.showInstructionModal()">
+                    <i class="fas fa-info-circle"></i> 資訊
+                </button>
+                <a href="https://courseap2.itc.ntnu.edu.tw/acadmOpenCourse/index.jsp" target="_blank" class="btn-action btn-outline" style="flex:1; text-decoration:none; justify-content:center;">
+                    <i class="fas fa-external-link-alt"></i> 開啟網站
+                </a>
+            </div>
+            
+            <iframe src="https://courseap2.itc.ntnu.edu.tw/acadmOpenCourse/index.jsp" class="full-frame"></iframe>
+        </div>
+
+    </div>
+
+    <div id="main-internal-nav">
+        <div class="internal-nav-item active" onclick="app.switchMainSubView('timetable', this)">
+            <i class="fas fa-table"></i> 課表
+        </div>
+        <div class="internal-nav-item" onclick="app.switchMainSubView('search', this)">
+            <i class="fas fa-comments"></i> 評價
+        </div>
+        <div class="internal-nav-item" onclick="app.switchMainSubView('official-query', this)">
+            <i class="fas fa-search-plus"></i> 找課
+        </div>
+    </div>
+
+</main>
+
+<aside id="right-sidebar" class="view-section">
+    <div class="sidebar-collapsed-brand">
+        師大好排課
+    </div>
+
+    <div class="sidebar-title-area" style="position: relative;">
+        <h2 style="margin:0; color:var(--primary); padding-left: 10px;">師大好排課</h2>
+        <div style="font-size:0.8rem; color:#999; padding-left: 10px;">NTNU Scheduler Pro</div>
+        <a href="https://www.instagram.com/vis_tzem/" target="_blank" class="author-link"><i class="fas fa-link"></i> 回報問題找我 </a>
+    </div>
+
+    <div class="scrollable-content">
+        <div class="control-group">
+            <div style="padding: 10px; background: var(--header-bg); border-radius: 8px; font-size: 0.8rem; color: var(--text-sub); display: flex; align-items: center; gap: 8px;">
+                 <i class="fas fa-save" id="local-save-icon"></i> 
+                 <span id="local-save-status">本地快取已就緒</span>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <div class="collapsible-header active" onclick="app.toggleTutorialSection()" style="cursor: pointer; display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="border: none; margin: 0;"><i class="fas fa-question-circle"></i> 說明與教學</h3>
+                <i id="tutorial-arrow" class="fas fa-chevron-down arrow-icon" style="transform: rotate(180deg); transition: transform 0.3s;"></i>
+            </div>
+
+            <div id="tutorial-content" class="collapsible-content show">
+                <button class="btn-action btn-primary" style="background: #6c5ce7;" onclick="app.openTutorialSelection()">
+                    <i class="fas fa-play-circle"></i> 使用教學
+                </button>
+                <button class="btn-action btn-outline" style="margin-top: 8px;" onclick="app.openWelcomeModal(true)">
+                    <i class="fas fa-robot"></i> 歡迎訊息
+                </button>
+                <button class="btn-action btn-outline" style="margin-top: 8px; border-color: var(--text-sub); color: var(--text-sub);" onclick="app.openDisclaimerManual(); document.getElementById('disclaimer-modal').style.display='flex';">
+                    <i class="fas fa-balance-scale"></i> 免責與版權聲明
+                </button>
+            </div>
+            <div style="border-bottom: 2px solid var(--border-color); margin-top: 5px;"></div>
+        </div>
+
+        <div id="stats-dept-wrapper">
+            <div id="dept-control-group" class="control-group">
+                <h3><i class="fas fa-user-graduate"></i> 您的主修系所</h3>
+                <select id="user-dept-select" class="filter-select" onchange="app.handleDeptChange()">
+                    <option value="all">請選擇主修 (計算學分用)</option>
+                </select>
+                <div style="font-size:0.75rem; color:#888; margin-top:5px;">非主修系所之選修課將歸類為「其他(外系)」</div>
+            </div>
+
+            <div class="control-group">
+                <h3><i class="fas fa-chart-pie"></i> 學分統計</h3>
+                <div style="background:var(--header-bg); padding:10px; border-radius:8px;">
+                    <div class="stats-grid">
+                        <div class="stat-item"><span class="stat-val" style="color:var(--c-required);" id="stat-req">0.0</span><span class="stat-label">必修</span></div>
+                        <div class="stat-item"><span class="stat-val" style="color:var(--c-elective);" id="stat-ele">0.0</span><span class="stat-label">選修</span></div>
+                        <div class="stat-item clickable-stat" onclick="app.showGenStats()"><span class="stat-val" style="color:var(--c-general);" id="stat-gen">0.0</span><span class="stat-label">通識 <i class="fas fa-info-circle" style="font-size:0.6rem;"></i></span></div>
+                        <div class="stat-item"><span class="stat-val" style="color:var(--c-common);" id="stat-common">0.0</span><span class="stat-label">共同</span></div>
+                        <div class="stat-item"><span class="stat-val" style="color:var(--c-pe);" id="stat-pe">0.0</span><span class="stat-label">體育</span></div>
+                        <div class="stat-item clickable-stat" onclick="app.showOtherStats()"><span class="stat-val" style="color:var(--text-sub);" id="stat-other">0.0</span><span class="stat-label">外系 <i class="fas fa-info-circle" style="font-size:0.6rem;"></i></span></div>
+                    </div>
+                    <div class="total-stat"><span class="total-val" id="total-credits">0.0</span><div class="total-label">總學分</div></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3><i class="fas fa-palette"></i> 視覺模式</h3>
+            <div style="display:flex; flex-direction:column; gap:5px;">
+                <button id="mode-btn" class="btn-action" onclick="app.cycleColorMode()"><span id="mode-text">課程：無色彩</span><i class="fas fa-sync-alt"></i></button>
+                <button id="theme-btn" class="btn-action btn-outline" onclick="app.toggleTheme()"><span id="theme-text">背景：淺色模式</span><i id="theme-icon" class="fas fa-moon"></i></button>
+            </div>
+        </div>
+        
+        <div class="control-group">
+            <h3><i class="fas fa-link"></i> 外部連結</h3>
+            <a href="https://www.aa.ntnu.edu.tw/zh_tw/selectives/Dayschool/CourseInquiry" target="_blank" class="btn-action btn-outline" style="text-decoration:none; color:var(--primary); border-color:var(--primary);">
+                <i class="fas fa-external-link-alt"></i> 課程查詢/選課系統
+            </a>
+        </div>
+
+        <div id="action-control-group" class="control-group">
+            <h3><i class="fas fa-tools"></i> 課表操作</h3>
+
+            <button class="btn-action btn-primary" style="background: var(--danger); margin-bottom: 8px;" onclick="app.showClearModal()">
+                <i class="fas fa-trash-alt"></i> 一鍵清空課表
+            </button>
+            
+            <div class="btn-row">
+                <button class="btn-action btn-primary" onclick="app.exportPDF()"><i class="fas fa-file-pdf"></i> 下載 PDF</button>
+                <button class="btn-action btn-outline" onclick="app.exportJSON()"><i class="fas fa-save"></i> 儲存專案</button>
+            </div>
+        </div>
+        
+        <div style="text-align:center; padding-bottom: 10px; margin-top: 10px;">
+            <span class="surprise-btn" onclick="app.showSurprise()">67</span><br>
+            <span class="surprise-btn" onclick="app.triggerExplosion()">爆炸</span>
+        </div>
+
+    </div>
+    
+    <div class="sidebar-footer">
+        Layout design: <a href="https://linktr.ee/vis_tzem" target="_blank">VisTzem</a>
+    </div>
+</aside>
+
+<div class="central-modal-overlay" id="welcome-modal">
+    <div class="central-modal" style="width: 450px; max-width: 90%;">
+        
+        <div class="welcome-slider-wrapper">
+            <div class="welcome-slides-track" id="welcome-track">
+                
+                <div class="welcome-slide active">
+                    <div style="margin-bottom: 15px; color: var(--primary); font-size: 3rem;">
+                        <i class="fas fa-robot"></i>
+                    </div>
+                    <h3 style="margin: 0 0 15px 0; color: var(--text-main);">歡迎尊貴的師大貴賓！</h3>
+                    
+                    <div style="line-height: 1.6; color: var(--text-sub); font-size: 0.95rem; text-align: left;">
+                        <p>歡迎到來，我是資工系 118 級的 <b>VisTzem</b><br>也可以叫我月天楓、小楓～</p>
+                        <p>礙於師大沒有一個方便的排課系統，我窩在房間一個禮拜寫出了這個網站，能夠 <b style="color: var(--danger); font-size: 1.1rem;">最大程度的</b> 幫助你進行排課和課程比較！</p>
+                    </div>
+                </div>
+
+                <div class="welcome-slide">
+                    <div style="margin-bottom: 15px; color: var(--warning); font-size: 3rem;">
+                        <i class="fas fa-star"></i>
+                    </div>
+                    <h3 style="margin: 0 0 10px 0; color: var(--text-main);">最新功能</h3>
+                    
+                    <div class="welcome-highlight-box">
+                        <div style="font-weight:bold; color:var(--text-main); margin-bottom:5px;">🎉 本次更新亮點：</div>
+                        <ul style="margin:0; padding-left:20px; color:var(--text-main); line-height: 1.8;">
+                             <li><b>✋ 檢視/縮放模式</b>：切換模式後可縮放、拖曳課表！</li>
+                             <li><b>📥 課程暫存區</b>：將猶豫的課程先拉到下方暫存。</li>
+                             <li><b>💾 自動快取</b>：每秒自動儲存進度，重新整理也不怕消失。</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="welcome-slide">
+                    <div style="margin-bottom: 15px; color: var(--c-pe); font-size: 3rem;">
+                        <i class="fas fa-heart"></i>
+                    </div>
+                    <h3 style="margin: 0 0 15px 0; color: var(--text-main);">開始使用</h3>
+                    
+                    <div style="line-height: 1.6; color: var(--text-sub); font-size: 0.95rem; text-align: left; width: 100%;">
+                        <p>
+                            <b style="color: var(--text-main);">建議第一次使用本系統的貴賓前往右側的設定區觀看界面引導。</b>
+                        </p>
+                        
+                        <p style="margin-bottom: 10px;">希望這款系統能夠幫助尊貴的師大貴賓順利規劃自己最喜歡的課！</p>
+                    </div>
+
+                    <div id="welcome-checkbox-container" style="margin-bottom: 5px; width: 100%; text-align: center;">
+                        <label style="display: inline-flex; align-items: center; gap: 5px; cursor: pointer; color: var(--text-sub); font-size: 0.9rem;">
+                            <input type="checkbox" id="welcome-dont-show" style="width: 16px; height: 16px; cursor: pointer;">
+                            <span>不再顯示此視窗</span>
+                        </label>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+
+        <div class="welcome-dots-container">
+            <div class="welcome-dot active"></div>
+            <div class="welcome-dot"></div>
+            <div class="welcome-dot"></div>
+        </div>
+
+        <div style="display: flex; gap: 10px; justify-content: center; width: 100%;">
+            <button class="btn-action btn-outline" id="btn-welcome-skip" style="flex: 1;" onclick="app.closeWelcome()">跳過</button>
+            <button class="btn-action btn-primary" id="btn-welcome-next" style="flex: 2;" onclick="app.nextWelcomeSlide()">下一步</button>
+        </div>
+
+    </div>
+</div>
+
+<div class="central-modal-overlay" id="disclaimer-modal">
+    <div class="central-modal" style="width: 480px; text-align: left;">
+        <div style="margin-bottom: 15px; color: var(--text-sub); font-size: 2.5rem; text-align: center;">
+            <i class="fas fa-gavel"></i>
+        </div>
+        <h3 style="margin: 0 0 15px 0; color: var(--text-main); text-align: center;">免責與版權聲明</h3>
+        
+        <div style="max-height: 350px; overflow-y: auto; font-size: 0.85rem; line-height: 1.7; color: var(--text-sub); padding-right: 10px;">
+            <p><b>1. 非官方聲明：</b><br>
+            本站「師大好排課 (NTNU Scheduler Pro)」為<b>非官方開發</b>之開源工具，與「國立臺灣師範大學」校方及其行政單位無任何直接隸屬或合約關係。系統內提供之課程查詢頁面連結僅為便利使用者操作之網頁導向，其資料權益與系統維護權皆屬原校方單位所有。</p>
+            
+            <p><b>2. 智慧財產權：</b><br>
+            本排課系統之介面視覺設計、核心排課邏輯演算法（JavaScript）、CSS 樣式表及網站整體架構，均由作者 <b>VisTzem (月天楓)</b> 個人原創開發所有。未經明確授權，禁止任何形式之商業用途複製、仿製或修改。</p>
+            
+            <p><b>3. 資料準確性：</b><br>
+            本系統透過讀取校方匯出之 Excel 檔案進行模擬排課，排課結果僅供參考。實際選課結果、課程異動及時程安排，請務必以校方「教務資訊系統」之正式紀錄為準。作者不對因使用本系統排課導致之任何選課失敗、時段衝突或權益損失承擔法律責任。</p>
+            
+            <p><b>4. 隱私權保護 (Updated)：</b><br>
+            本系統<b>預設採本地端運算</b>，所有課表進度與匯入之 Excel 資料均儲存於您的瀏覽器 LocalStorage。若您啟用<b>「雲端同步」</b>功能並登入 Google 帳號，您的課表資料將加密儲存於 Google Firebase 雲端資料庫，以便您跨裝置存取。作者承諾絕不擅自讀取、外流或將您的資料用於排課備份以外之用途。</p>
+        </div>
+
+        <div id="disclaimer-checkbox-wrapper" style="margin-top: 15px; display: none; justify-content: center;">
+            <label style="display: inline-flex; align-items: center; gap: 5px; cursor: pointer; color: var(--text-sub); font-size: 0.9rem;">
+                <input type="checkbox" id="hide-disclaimer-checkbox" style="width: 16px; height: 16px; cursor: pointer;">
+                <span>不再顯示此聲明</span>
+            </label>
+        </div>
+
+        <div style="margin-top: 20px; display: flex; justify-content: center;">
+            <button class="btn-action btn-primary" style="width: auto; padding: 10px 40px;" onclick="app.handleCloseDisclaimer()">我已理解並同意</button>
+        </div>
+    </div>
+</div>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>
