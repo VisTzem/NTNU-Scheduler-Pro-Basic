@@ -1,18 +1,13 @@
-// js/state.js
-
 export const state = {
-    // --- 1. 核心課程資料 ---
     allCourses: [],            
     scheduledCourses: [],      
     filteredCoursesGlobal: [], 
     loadedFiles: [],           
     holdingCourses: [],        
 
-    // --- 2. 歷史紀錄系統 ---
     history: [],               
     historyIndex: -1,          
     
-    // --- 3. 介面視覺狀態 ---
     colorMode: 0,              
     currentTheme: 'light',     
     renderedCount: 0,          
@@ -24,11 +19,9 @@ export const state = {
     pan: { x: 0, y: 0 },       
     isLocalDirty: false,       
 
-    // --- 4. 暫存與操作狀態 ---
     pendingConflictData: null, 
     justAddedCourseId: null,   
     
-    // --- 5. 檔案匯入/專案狀態 ---
     tempJsonFile: null,        
     currentProject: {
         name: null,       

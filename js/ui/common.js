@@ -1,4 +1,3 @@
-// js/ui/common.js
 import { state } from '../state.js';
 import { MODE_NAMES } from '../config.js';
 import * as UISchedule from './schedule.js';

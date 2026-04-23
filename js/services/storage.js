@@ -1,7 +1,5 @@
-// js/services/storage.js
 import { state, setAllCourses, setScheduledCourses, setHoldingCourses, resetHistory } from '../state.js';
 import * as UIStats from '../ui/stats.js'; 
-// 這裡不需要完整的 UI，只需要 Stats 更新
 
 const STORAGE_KEY = 'ntnu_scheduler_cache_v1';
 

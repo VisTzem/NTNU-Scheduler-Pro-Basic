@@ -1,14 +1,6 @@
-// js/ui/stats.js
 import { state } from '../state.js';
 import { escapeHTML } from '../utils.js';
 
-/**
- * =========================================================================
- * 統計與學分計算 (Statistics Logic)
- * =========================================================================
- */
-
-/** 更新系所下拉選單 */
 export function updateDeptOptions() {
     const filterSelect = document.getElementById('filter-dept');
     const userSelect = document.getElementById('user-dept-select');
@@ -37,7 +29,6 @@ export function updateDeptOptions() {
     }
 }
 
-/** 計算並更新學分統計 */
 export function updateCredits() {
     const userDept = document.getElementById('user-dept-select').value;
     let total = 0, req = 0, ele = 0, gen = 0, other = 0, common = 0, pe = 0;
@@ -87,7 +78,6 @@ function animateValue(id, end) {
     setTimeout(() => obj.style.opacity = 1, 200);
 }
 
-/** 顯示通識統計詳情 */
 export function showGenStats() {
     const list = state.scheduledCourses.filter(c => c.type.includes('通'));
     let html = '';
@@ -108,7 +98,6 @@ export function showGenStats() {
     document.getElementById('stats-modal').style.display = 'flex';
 }
 
-/** 顯示外系/其他統計詳情 */
 export function showOtherStats() {
     const userDept = document.getElementById('user-dept-select').value;
     const list = state.scheduledCourses.filter(c => {

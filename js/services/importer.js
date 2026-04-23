@@ -1,4 +1,3 @@
-// js/services/importer.js
 import { state, setAllCourses, setScheduledCourses, resetHistory } from '../state.js';
 import { parseTime } from '../utils.js'; 
 

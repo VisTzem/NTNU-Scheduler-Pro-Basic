@@ -1,5 +1,3 @@
-// js/services/explosion.js
-
 let engine, render, runner, composite;
 let originalData = new Map(); 
 let isExploding = false;
@@ -16,14 +14,12 @@ export function triggerExplosion() {
     const restoreBtn = document.getElementById('restore-physics-btn');
     if (restoreBtn) {
         restoreBtn.style.display = 'block';
-        restoreBtn.style.zIndex = '2001'; // 確保按鈕在最上層
+        restoreBtn.style.zIndex = '2001';
         restoreBtn.style.pointerEvents = 'auto';
     }
 
-    // 1. 鎖定網頁捲動
     document.body.style.overflow = 'hidden';
     
-    // 建立透明互動層
     interactionOverlay = document.createElement('div');
     Object.assign(interactionOverlay.style, {
         position: 'fixed', top: '0', left: '0', width: '100%', height: '100%',
@@ -34,7 +30,6 @@ export function triggerExplosion() {
     });
     document.body.appendChild(interactionOverlay);
 
-    // 2. 初始化物理引擎
     const Engine = Matter.Engine,
           Runner = Matter.Runner,
           Bodies = Matter.Bodies,
@@ -45,7 +40,6 @@ export function triggerExplosion() {
     engine = Engine.create();
     const world = engine.world;
 
-    // 3. 選擇目標
     const targets = [
         ...document.querySelectorAll('.course-card'),       
         ...document.querySelectorAll('.schedule-item'),     
@@ -55,7 +49,6 @@ export function triggerExplosion() {
         document.querySelector('#course-stats-bar'),        
     ].filter(el => el && el.offsetParent !== null); 
 
-    // 4. 建立邊界
     const width = window.innerWidth;
     const height = window.innerHeight;
     const wallOptions = { isStatic: true, render: { visible: false } };
@@ -66,27 +59,21 @@ export function triggerExplosion() {
 
     Composite.add(world, [ground, leftWall, rightWall]);
 
-    // 5. 處理每個目標元素
     targets.forEach(el => {
         const rect = el.getBoundingClientRect();
         
-        // [修正邏輯] 建立佔位符 (Placeholder)
-        // 在元素被移動前，先在其原位置插入一個標記，確保復原時能精準歸位
         const placeholder = document.createComment('explosion-placeholder');
         if (el.parentNode) {
             el.parentNode.insertBefore(placeholder, el);
         }
 
-        // 紀錄原始狀態與佔位符
         originalData.set(el, {
             cssText: el.style.cssText,
-            placeholder: placeholder // 儲存佔位符引用
+            placeholder: placeholder
         });
 
-        // 將元素移到 body
         document.body.appendChild(el);
 
-        // 設定物理樣式
         el.style.position = 'fixed';
         el.style.left = '0px';
         el.style.top = '0px';
@@ -97,7 +84,6 @@ export function triggerExplosion() {
         el.style.margin = '0';
         el.style.transformOrigin = 'center center';
         
-        // 建立剛體
         const body = Bodies.rectangle(
             rect.left + rect.width / 2, 
             rect.top + rect.height / 2, 
@@ -121,7 +107,6 @@ export function triggerExplosion() {
         Composite.add(world, body);
     });
 
-    // 6. 加入滑鼠控制
     const mouse = Mouse.create(interactionOverlay);
     const mouseConstraint = MouseConstraint.create(engine, {
         mouse: mouse,
@@ -133,7 +118,6 @@ export function triggerExplosion() {
 
     Composite.add(world, mouseConstraint);
 
-    // 7. 啟動
     runner = Runner.create();
     
     Matter.Events.on(engine, 'afterUpdate', () => {
@@ -153,32 +137,23 @@ export function triggerExplosion() {
 export function restoreExplosion() {
     if (!isExploding) return;
 
-    // 1. 停止物理引擎
-    // [重要修正] 使用 Matter.Runner 而非未定義的 Runner
     if (runner) { Matter.Runner.stop(runner); runner = null; }
     if (engine) { Matter.World.clear(engine.world); Matter.Engine.clear(engine); engine = null; }
     
-    // 2. 清理介面
     if (interactionOverlay) { interactionOverlay.remove(); interactionOverlay = null; }
     document.body.style.overflow = '';
 
-    // 3. 還原 DOM 位置與樣式
     originalData.forEach((data, el) => {
-        // 還原樣式
         el.style.cssText = data.cssText;
-        el.style.transform = ''; // 強制清除物理引擎加上的 transform
+        el.style.transform = '';
         
-        // [修正邏輯] 使用佔位符進行精確復原
         if (data.placeholder && data.placeholder.parentNode) {
-            // 將元素換回佔位符的位置
             data.placeholder.parentNode.replaceChild(el, data.placeholder);
         } else {
-            // 備用方案：如果找不到佔位符，至少先隱藏避免擋路
             el.style.display = 'none';
         }
     });
 
-    // 4. 清理狀態
     originalData.clear();
     isExploding = false;
     document.getElementById('restore-physics-btn').style.display = 'none';

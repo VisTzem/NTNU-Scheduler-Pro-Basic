@@ -1,15 +1,7 @@
-// js/ui/course-list.js
 import { state } from '../state.js';
 import { PERIODS, BATCH_SIZE } from '../config.js';
 import { escapeHTML } from '../utils.js';
 
-/**
- * =========================================================================
- * 課程列表渲染 (Course List Logic)
- * =========================================================================
- */
-
-/** 初始化節次篩選選單 */
 export function initFilter() {
     const select = document.getElementById('filter-period');
     PERIODS.forEach(p => {
@@ -19,7 +11,6 @@ export function initFilter() {
     });
 }
 
-/** 初始化無限捲動監聽 */
 export function initLazyLoading() {
     const desktopContainer = document.getElementById('course-list'); 
     const mobileContainer = document.getElementById('left-sidebar'); 
@@ -31,7 +22,6 @@ export function initLazyLoading() {
     if(mobileContainer) mobileContainer.addEventListener('scroll', handleScroll);
 }
 
-/** 渲染/更新課程列表 */
 export function renderCourseList() {
     const list = document.getElementById('course-list');
     
@@ -41,14 +31,12 @@ export function renderCourseList() {
         return;
     }
 
-    // 取得篩選條件
     const filterDept = document.getElementById('filter-dept').value;
     const filterDay = document.getElementById('filter-day').value;
     const filterType = document.getElementById('filter-type').value;
     const filterPeriod = document.getElementById('filter-period').value;
     const searchText = document.getElementById('filter-search').value.trim().toLowerCase();
 
-    // 執行篩選
     let filtered = state.allCourses.filter(c => {
         if (searchText) {
             const nameMatch = (c.name || '').toLowerCase().includes(searchText);
@@ -70,7 +58,6 @@ export function renderCourseList() {
         return true;
     });
 
-    // 執行排序
     filtered.sort((a, b) => {
         const deptCompare = (a.dept || '').localeCompare(b.dept || '');
         if (deptCompare !== 0) return deptCompare;
@@ -99,7 +86,6 @@ export function renderCourseList() {
     renderNextBatch();
 }
 
-/** 渲染下一批次 (Batch Rendering) */
 export function renderNextBatch() {
     if (state.renderedCount >= state.filteredCoursesGlobal.length) return;
 

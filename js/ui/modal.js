@@ -1,4 +1,3 @@
-// js/ui/modal.js
 import { state, resetHistory } from '../state.js'; 
 import { TUTORIAL_STEPS } from '../config.js';
 import { escapeHTML, parseSemText } from '../utils.js';

@@ -1,4 +1,3 @@
-// js/services/exporter.js
 import { state } from '../state.js';
 import { escapeHTML } from '../utils.js';
 import * as UICommon from '../ui/common.js';
@@ -143,12 +142,12 @@ async function _performExportPDF() {
     const items = timetableClone.querySelectorAll('.schedule-item');
     items.forEach(item => {
         item.style.position = 'relative'; 
-        item.style.display = 'flex';           // 改為 flex 佈局以利置中
-        item.style.flexDirection = 'column';    // 垂直排列內容
-        item.style.justifyContent = 'center';   // 垂直置中
-        item.style.alignItems = 'center';       // 水平置中
+        item.style.display = 'flex';
+        item.style.flexDirection = 'column';
+        item.style.justifyContent = 'center';
+        item.style.alignItems = 'center';
         item.style.width = '100%';
-        item.style.height = '100%';             // 撐滿單元格高度
+        item.style.height = '100%';
         item.style.margin = '0 auto';     
         item.style.padding = '2px'; 
         item.style.boxSizing = 'border-box';

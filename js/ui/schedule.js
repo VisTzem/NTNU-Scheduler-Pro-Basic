@@ -1,4 +1,3 @@
-// js/ui/schedule.js
 import { state } from '../state.js';
 import { PERIODS, MODE_NAMES } from '../config.js';
 import { getCourseColor, escapeHTML } from '../utils.js';
@@ -6,18 +5,10 @@ import * as UIStats from './stats.js';
 import * as UICommon from './common.js';
 import * as UIModal from './modal.js'; 
 
-/**
- * =========================================================================
- * 課表網格渲染與互動 (Schedule Grid Logic)
- * =========================================================================
- */
-
-/** 初始化網格 DOM */
 export function initGrid() {
     const tbody = document.getElementById('timetable-body');
     let html = '';
 
-    // 定義節次與時間的對照表 [根據使用者提供的圖片內容]
     const timeMapping = {
         "0": "07:10<br>~<br>08:00", "1": "08:10<br>~<br>09:00", "2": "09:10<br>~<br>10:00",
         "3": "10:20<br>~<br>11:10", "4": "11:20<br>~<br>12:10", "5": "12:20<br>~<br>13:10",
@@ -28,7 +19,6 @@ export function initGrid() {
 
     PERIODS.forEach(p => {
         const timeStr = timeMapping[p] || "";
-        // 根據 state.showPeriodTime 決定是否加上時間文字
         const timeHtml = state.showPeriodTime ? `<div class="period-time">${timeStr}</div>` : '';
         
         html += `<tr>
@@ -46,18 +36,15 @@ export function initGrid() {
     tbody.innerHTML = html;
 }
 
-/** 切換時間顯示狀態 */
 export function togglePeriodTime() {
     state.showPeriodTime = !state.showPeriodTime;
-    initGrid();       // 重新建立網格結構
-    renderSchedule(); // 重新填入課程卡片
+    initGrid();
+    renderSchedule();
 }
 
-/** 初始化縮放平移事件 (Zoom & Pan) */
 export function initZoomPan() {
     const container = document.getElementById('timetable-container');
     
-    // --- 電腦版滑鼠事件 ---
     let isDragging = false;
     let startX, startY;
 
@@ -100,7 +87,6 @@ export function initZoomPan() {
         }
     });
 
-    // --- 手機版觸控事件 (單指拖曳 + 雙指縮放) ---
     let initialPinchDist = null; 
     let initialZoom = 1;         
     let lastCenter = null;       
@@ -131,7 +117,6 @@ export function initZoomPan() {
     container.addEventListener('touchmove', (e) => {
         if (state.interactionMode !== 'view') return;
 
-        // 單指拖曳
         if (e.touches.length === 1 && lastTouchX !== null) {
             if (e.cancelable) e.preventDefault(); 
             const currX = e.touches[0].clientX;
@@ -145,7 +130,6 @@ export function initZoomPan() {
             updateZoom();
         }
 
-        // 雙指縮放與移動
         if (e.touches.length === 2 && initialPinchDist && lastCenter) {
             if (e.cancelable) e.preventDefault();
             const dx = e.touches[0].clientX - e.touches[1].clientX;
@@ -185,7 +169,6 @@ export function initZoomPan() {
     });
 }
 
-/** 渲染課表 */
 export function renderSchedule() {
     document.querySelectorAll('.cell-droppable').forEach(td => { 
         td.innerHTML = ''; 
@@ -248,7 +231,6 @@ export function renderSchedule() {
     UICommon.updateUndoRedoButtons();
 }
 
-/** 渲染暫存區 */
 export function renderHoldingArea() {
     const container = document.getElementById('holding-area');
     if(!container) return;
@@ -261,7 +243,6 @@ export function renderHoldingArea() {
     const isViewMode = state.interactionMode === 'view';
 
     container.innerHTML = state.holdingCourses.map(c => {
-        // [修正] 檢視模式下禁止暫存區拖曳
         const draggable = !isViewMode;
         return `
             <div class="holding-item" draggable="${draggable}" data-id="${c.id}" onclick="app.showDetail('${c.id}')">
@@ -273,7 +254,6 @@ export function renderHoldingArea() {
     }).join('');
 }
 
-/** 切換暫存區收合 */
 export function toggleHoldingArea() {
     const content = document.getElementById('holding-content');
     const arrow = document.getElementById('holding-arrow');
@@ -288,7 +268,6 @@ export function toggleHoldingArea() {
     }
 }
 
-/** 更新縮放 UI 狀態 */
 export function updateZoom() {
     const wrapper = document.getElementById('timetable-wrapper');
     const container = document.getElementById('timetable-container');
@@ -306,7 +285,6 @@ export function updateZoom() {
     }
 }
 
-/** 更新互動模式 (編輯/檢視) */
 export function updateInteractionMode() {
     const btn = document.getElementById('btn-mode-switch');
     const hint = document.getElementById('zoom-hint');
@@ -330,7 +308,6 @@ export function updateInteractionMode() {
     renderSchedule();
 }
 
-/** 更新圖例 (Legend) */
 export function updateLegend() {
     const legend = document.getElementById('legend-bar');
     if(!legend) return;
@@ -368,7 +345,6 @@ export function updateLegend() {
     `;
 }
 
-/** 渲染衝突視覺效果 */
 export function renderConflictVisuals() {
     if (!state.pendingConflictData) return;
     const { newCourse, conflictingIds } = state.pendingConflictData;
@@ -416,7 +392,7 @@ export function clearHints() {
 function applyStyleToItem(el, color) {
     el.style.backgroundColor = ''; el.style.color = ''; el.style.border = '1px solid transparent';
     
-    if (state.colorMode === 0) { // 極簡黑階
+    if (state.colorMode === 0) {
         if (state.currentTheme === 'dark') {
             el.style.backgroundColor = '#303031'; 
             el.style.color = '#e4e6eb'; 
@@ -427,11 +403,11 @@ function applyStyleToItem(el, color) {
             el.style.border = '1px solid #ced4da'; 
         }
     }
-    else if (state.colorMode === 1) { // 背景填色
+    else if (state.colorMode === 1) {
         el.style.backgroundColor = color; 
         el.style.color = 'black'; 
     }
-    else if (state.colorMode === 2) { // 字體填色
+    else if (state.colorMode === 2) {
         el.style.backgroundColor = (state.currentTheme === 'dark') ? '#242526' : 'white'; 
         el.style.color = color; 
         el.style.border = `2px solid ${color}`; 

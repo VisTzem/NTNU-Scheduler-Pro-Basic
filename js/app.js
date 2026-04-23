@@ -1,4 +1,3 @@
-// js/app.js
 import { state, addScheduledCourse, removeScheduledCourse, setScheduledCourses, setHoldingCourses, initHistory, undoState, redoState } from './state.js';
 import * as Storage from './services/storage.js';
 import * as Importer from './services/importer.js';
@@ -187,7 +186,6 @@ document.addEventListener('DOMContentLoaded', () => {
         initWelcome();
     }
     
-    // 每秒儲存到 LocalStorage
     setInterval(Storage.saveToLocalStorage, 1000);
 
     window.addEventListener('resize', () => {
